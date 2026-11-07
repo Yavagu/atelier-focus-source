@@ -1,6 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { Crosshair, Pause, Play, RotateCcw } from 'lucide-react'
-import { formatClock, formatDuration, formatRange, getKindColors, makeSegments, type Segment, type ThemeId } from './schedule'
+import { ActivityIcon } from './ActivityIcon'
+import {
+  DAILY_SCHEDULE,
+  formatClock,
+  formatDuration,
+  formatRange,
+  getKindColors,
+  makeSegments,
+  type ActivityDefinition,
+  type Segment,
+  type ThemeId,
+} from './schedule'
 
 const ZOOM_SPANS = [24 * 3600000, 3 * 3600000, 3600000, 10 * 60000, 60000]
 const TICK_FAMILIES = [
@@ -165,12 +176,20 @@ function paintTimeline(
 }
 
 interface Props {
+  schedule?: ActivityDefinition[]
+  scheduleRevision?: number | string
   live: boolean
   onLiveChange: (live: boolean) => void
   theme?: ThemeId
 }
 
-export default function TimelineInstrument({ live, onLiveChange, theme = 'theme-1' }: Props) {
+export default function TimelineInstrument({
+  schedule = DAILY_SCHEDULE,
+  scheduleRevision = 0,
+  live,
+  onLiveChange,
+  theme = 'theme-1',
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const timeRef = useRef<HTMLSpanElement>(null)
   const thumbRef = useRef<HTMLDivElement>(null)
@@ -192,10 +211,19 @@ export default function TimelineInstrument({ live, onLiveChange, theme = 'theme-
   const [zoomDisplay, setZoomDisplay] = useState(1)
   const [tooltip, setTooltip] = useState<{ segment: Segment; x: number; y: number; pinned: boolean } | null>(null)
   const themeRef = useRef(theme)
+  const scheduleRef = useRef(schedule)
+  const revisionRef = useRef(scheduleRevision)
 
   useEffect(() => {
     themeRef.current = theme
   }, [theme])
+
+  useEffect(() => {
+    scheduleRef.current = schedule
+    revisionRef.current = scheduleRevision
+    segmentCacheRef.current = { key: '', value: [] }
+    setTooltip(null)
+  }, [schedule, scheduleRevision])
 
   const setTargetZoom = useCallback((value: number) => {
     targetZoomRef.current = clamp(value, 0, 4)
@@ -273,9 +301,12 @@ export default function TimelineInstrument({ live, onLiveChange, theme = 'theme-
         const scale = width / spanForZoom(zoomRef.current)
         geometryRef.current = { centerMs, scale }
         const date = new Date(centerMs)
-        const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
+        const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}_rev-${revisionRef.current}`
         if (segmentCacheRef.current.key !== key) {
-          segmentCacheRef.current = { key, value: makeSegments(centerMs, 2, 3) }
+          segmentCacheRef.current = {
+            key,
+            value: makeSegments(scheduleRef.current, centerMs, 2, 3),
+          }
         }
         const ctx = canvas.getContext('2d', { alpha: true })
         if (ctx) {
@@ -321,12 +352,12 @@ export default function TimelineInstrument({ live, onLiveChange, theme = 'theme-
     return segmentCacheRef.current.value.find(s => s.startMs <= ms && ms < s.endMs) ?? null
   }
 
-  function canvasPoint(event: React.PointerEvent<HTMLCanvasElement>) {
+  function canvasPoint(event: PointerEvent<HTMLCanvasElement>) {
     const rect = event.currentTarget.getBoundingClientRect()
     return { x: event.clientX - rect.left, y: event.clientY - rect.top }
   }
 
-  function pointerDown(event: React.PointerEvent<HTMLCanvasElement>) {
+  function pointerDown(event: PointerEvent<HTMLCanvasElement>) {
     if (event.button !== 0) return
     const p = canvasPoint(event)
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -341,7 +372,7 @@ export default function TimelineInstrument({ live, onLiveChange, theme = 'theme-
     }
   }
 
-  function pointerMove(event: React.PointerEvent<HTMLCanvasElement>) {
+  function pointerMove(event: PointerEvent<HTMLCanvasElement>) {
     const p = canvasPoint(event)
     if (pointerRef.current.has(event.pointerId)) {
       pointerRef.current.set(event.pointerId, p)
@@ -367,7 +398,7 @@ export default function TimelineInstrument({ live, onLiveChange, theme = 'theme-
     }
   }
 
-  function pointerUp(event: React.PointerEvent<HTMLCanvasElement>) {
+  function pointerUp(event: PointerEvent<HTMLCanvasElement>) {
     const p = canvasPoint(event)
     const dragged = panRef.current?.moved
     pointerRef.current.delete(event.pointerId)
@@ -388,7 +419,7 @@ export default function TimelineInstrument({ live, onLiveChange, theme = 'theme-
     setTargetZoom(4 - ((y - rect.top) / rect.height) * 4)
   }
 
-  function keyDown(event: React.KeyboardEvent) {
+  function keyDown(event: KeyboardEvent) {
     if (event.key === '+' || event.key === '=' || event.key === 'ArrowUp') {
       event.preventDefault(); setTargetZoom(targetZoomRef.current + 0.25)
     } else if (event.key === '-' || event.key === '_' || event.key === 'ArrowDown') {
@@ -429,7 +460,17 @@ export default function TimelineInstrument({ live, onLiveChange, theme = 'theme-
           </div>
           {tooltip && (
             <div className="segment-tooltip" style={{ left: `clamp(110px, ${tooltip.x}px, calc(100% - 110px))`, top: 181 }} role="status">
-              <div className="tooltip-title"><span style={{ background: getKindColors(theme)[tooltip.segment.kind] }} />{tooltip.segment.name}{tooltip.pinned && <button onClick={() => setTooltip(null)} aria-label="Close activity details">×</button>}</div>
+              <div className="tooltip-title">
+                <span style={{ background: getKindColors(theme)[tooltip.segment.kind] }} />
+                <ActivityIcon
+                  icon={tooltip.segment.icon}
+                  fallbackKind={tooltip.segment.kind}
+                  size={13}
+                  style={{ marginRight: 6, display: 'inline-block', verticalAlign: 'middle' }}
+                />
+                <span>{tooltip.segment.name}</span>
+                {tooltip.pinned && <button onClick={() => setTooltip(null)} aria-label="Close activity details">×</button>}
+              </div>
               <div className="tooltip-time">{formatRange(tooltip.segment.startMs, tooltip.segment.endMs)}</div>
               <div className="tooltip-duration">{formatDuration(tooltip.segment.endMs - tooltip.segment.startMs)} scheduled</div>
             </div>
