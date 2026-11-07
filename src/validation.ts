@@ -1,5 +1,6 @@
 import { isIconKey } from './ActivityIcon'
 import type { ActivityDefinition, ActivityKind, Preset } from './schedule'
+import { isTuneId } from './sessionTunes'
 
 export interface OverlapConflict {
   blockAId: string
@@ -108,6 +109,11 @@ export function validateSchedule(blocks: ActivityDefinition[]): ValidationResult
     // Icon
     if (!isIconKey(block.icon)) {
       addBlockError(id, 'Invalid icon selected.')
+    }
+
+    // End Tune
+    if (block.endTuneId !== undefined && !isTuneId(block.endTuneId)) {
+      addBlockError(id, 'Invalid completion sound selected.')
     }
 
     // Start & End times

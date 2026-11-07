@@ -51,11 +51,14 @@ export function areSchedulesEqual(a: ActivityDefinition[], b: ActivityDefinition
   for (let i = 0; i < a.length; i++) {
     const itemA = a[i]
     const itemB = b[i]
+    const tuneA = itemA.endTuneId ?? 'soft-chime'
+    const tuneB = itemB.endTuneId ?? 'soft-chime'
     if (
       itemA.id !== itemB.id ||
       itemA.name.trim() !== itemB.name.trim() ||
       itemA.kind !== itemB.kind ||
       itemA.icon !== itemB.icon ||
+      tuneA !== tuneB ||
       itemA.start[0] !== itemB.start[0] ||
       itemA.start[1] !== itemB.start[1] ||
       itemA.end[0] !== itemB.end[0] ||
@@ -440,6 +443,7 @@ export function usePlannerState(): PlannerState {
       end: [10, 0],
       kind: 'study' as ActivityKind,
       icon: DEFAULT_KIND_ICONS.study,
+      endTuneId: 'soft-chime',
     }
 
     setDraftSchedule(prev => [...prev, newBlock])

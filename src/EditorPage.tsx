@@ -19,6 +19,8 @@ import { ActivityEditorRow } from './ActivityEditorRow'
 import { ConfirmDialog } from './ConfirmDialog'
 import { PresetModal } from './PresetModal'
 import { SchedulePreview } from './SchedulePreview'
+import { SoundSettings } from './SoundSettings'
+import type { StoredAudioSettingsV1 } from './audioStorage'
 import {
   ATELIER_ORIGINAL_PRESET,
   formatMinutes,
@@ -30,12 +32,16 @@ import type { PlannerState } from './usePlannerState'
 interface EditorPageProps {
   planner: PlannerState
   theme?: ThemeId
+  audioSettings: StoredAudioSettingsV1
+  onUpdateAudioSettings: (updates: Partial<StoredAudioSettingsV1>) => void
   onApplySuccess?: () => void
 }
 
 export function EditorPage({
   planner,
   theme = 'theme-1',
+  audioSettings,
+  onUpdateAudioSettings,
   onApplySuccess,
 }: EditorPageProps) {
   const [toastMessage, setToastMessage] = useState<string | null>(null)
@@ -483,6 +489,13 @@ export function EditorPage({
         </div>
       )}
 
+      {/* SECTION: SESSION SOUNDS */}
+      <SoundSettings
+        settings={audioSettings}
+        onUpdateSettings={onUpdateAudioSettings}
+        theme={theme}
+      />
+
       {/* SECTION D: TIME BLOCK EDITOR */}
       <div className="time-block-editor-section" aria-label="Time blocks list">
         <div className="editor-table-head">
@@ -490,6 +503,7 @@ export function EditorPage({
           <span>ACTIVITY NAME</span>
           <span>CATEGORY</span>
           <span>TIME RANGE & DURATION</span>
+          <span>END SOUND</span>
           <span>ACTION</span>
         </div>
 

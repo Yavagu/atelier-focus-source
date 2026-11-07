@@ -5,6 +5,7 @@ import {
   type ActivityDefinition,
   type Preset,
 } from './schedule'
+import { isTuneId } from './sessionTunes'
 import { validateSchedule } from './validation'
 
 export const STORAGE_KEY = 'atelier_focus_planner_v1'
@@ -53,6 +54,8 @@ function sanitizeBlocks(blocks: unknown): ActivityDefinition[] | null {
     if (typeof b.kind !== 'string') return null
     if (typeof b.icon !== 'string') return null
 
+    const endTuneId = isTuneId(b.endTuneId) ? b.endTuneId : 'soft-chime'
+
     sanitized.push({
       id: b.id,
       name: b.name.trim(),
@@ -60,6 +63,7 @@ function sanitizeBlocks(blocks: unknown): ActivityDefinition[] | null {
       end: [Number(b.end[0]), Number(b.end[1])],
       kind: b.kind as ActivityDefinition['kind'],
       icon: b.icon as ActivityDefinition['icon'],
+      endTuneId,
     })
   }
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
-import { AlertCircle, ChevronDown, Trash2 } from 'lucide-react'
+import { AlertCircle, ChevronDown, Music, Play, Square, Trash2 } from 'lucide-react'
 import { ActivityIcon, IconPickerPopover, type IconKey } from './ActivityIcon'
+import { audioEngine } from './audioEngine'
 import {
   getActivityDurationMinutes,
   getKindColors,
@@ -9,6 +10,12 @@ import {
   type ActivityKind,
   type ThemeId,
 } from './schedule'
+import {
+  DEFAULT_TUNE_ID,
+  TUNE_REGISTRY,
+  type TuneId,
+} from './sessionTunes'
+import { TunePickerPopover } from './TunePickerPopover'
 
 interface ActivityEditorRowProps {
   block: ActivityDefinition
@@ -50,9 +57,26 @@ export function ActivityEditorRow({
   onDelete,
 }: ActivityEditorRowProps) {
   const [showIconPicker, setShowIconPicker] = useState(false)
+  const [showTunePicker, setShowTunePicker] = useState(false)
+  const [isRowPlaying, setIsRowPlaying] = useState(false)
   const iconBtnRef = useRef<HTMLButtonElement>(null)
+  const tuneBtnRef = useRef<HTMLButtonElement>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
   const colors = getKindColors(theme)
+
+  const tuneId: TuneId = block.endTuneId || DEFAULT_TUNE_ID
+  const tuneDef = TUNE_REGISTRY[tuneId] || TUNE_REGISTRY[DEFAULT_TUNE_ID]
+  const isNone = tuneId === 'none'
+
+  useEffect(() => {
+    return audioEngine.subscribe({
+      onPlayingChange: currentlyPlaying => {
+        if (!currentlyPlaying) {
+          setIsRowPlaying(false)
+        }
+      },
+    })
+  }, [])
 
   useEffect(() => {
     if (autoFocus && nameInputRef.current) {
@@ -78,6 +102,18 @@ export function ActivityEditorRow({
     const parsed = parseTimeInput(e.target.value)
     if (parsed) {
       onUpdate({ end: parsed })
+    }
+  }
+
+  const handlePlayPreview = async () => {
+    if (isNone) return
+    if (isRowPlaying) {
+      audioEngine.stopAll()
+      setIsRowPlaying(false)
+    } else {
+      setIsRowPlaying(true)
+      await audioEngine.unlockAudio()
+      await audioEngine.playTune(tuneId)
     }
   }
 
@@ -187,6 +223,39 @@ export function ActivityEditorRow({
           </div>
         </div>
 
+        {/* End Sound Selector & Play Button */}
+        <div className="activity-row-tune-col">
+          <label htmlFor={`tune-${block.id}`} className="sr-only">
+            End Sound
+          </label>
+          <div className="tune-selector-wrap">
+            <button
+              ref={tuneBtnRef}
+              id={`tune-${block.id}`}
+              type="button"
+              className="tune-select-btn"
+              onClick={() => setShowTunePicker(true)}
+              aria-label={`Completion sound for ${block.name || 'activity'}, current: ${tuneDef.name}`}
+              title="Click to select completion sound"
+            >
+              <Music size={12} className="tune-btn-icon" />
+              <span className="tune-btn-name">{tuneDef.name}</span>
+              <ChevronDown size={11} className="tune-btn-arrow" />
+            </button>
+
+            <button
+              type="button"
+              className={`tune-play-btn ${isRowPlaying ? 'playing' : ''}`}
+              onClick={handlePlayPreview}
+              disabled={isNone}
+              aria-label={isNone ? 'No sound selected' : isRowPlaying ? 'Stop preview' : `Preview ${tuneDef.name}`}
+              title={isNone ? 'No sound selected' : isRowPlaying ? 'Stop preview' : `Preview ${tuneDef.name}`}
+            >
+              {isRowPlaying ? <Square size={11} /> : <Play size={11} />}
+            </button>
+          </div>
+        </div>
+
         {/* Delete row button */}
         <div className="activity-row-action-col">
           <button
@@ -223,6 +292,17 @@ export function ActivityEditorRow({
           onUpdate({ icon: newIcon })
         }}
         onClose={() => setShowIconPicker(false)}
+      />
+
+      {/* Tune Picker Popover */}
+      <TunePickerPopover
+        isOpen={showTunePicker}
+        triggerRef={tuneBtnRef}
+        value={tuneId}
+        onChange={(newTune: TuneId) => {
+          onUpdate({ endTuneId: newTune })
+        }}
+        onClose={() => setShowTunePicker(false)}
       />
     </div>
   )

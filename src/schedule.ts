@@ -1,4 +1,7 @@
 import type { IconKey } from './ActivityIcon'
+import { DEFAULT_TUNE_ID, type TuneId } from './sessionTunes'
+
+export { DEFAULT_TUNE_ID, type TuneId }
 
 export type ActivityKind = 'study' | 'break' | 'sleep' | 'routine'
 
@@ -9,6 +12,7 @@ export interface ActivityDefinition {
   end: [number, number]   // [hour: 0..23, minute: 0..59]
   kind: ActivityKind
   icon: IconKey
+  endTuneId?: TuneId
 }
 
 export interface Segment extends ActivityDefinition {
@@ -28,18 +32,18 @@ export interface Preset {
 }
 
 export const ATELIER_ORIGINAL_SCHEDULE: ActivityDefinition[] = [
-  { id: 'wake', name: 'Wake Up & Freshen Up', start: [6, 30], end: [7, 0], kind: 'routine', icon: 'Sun' },
-  { id: 'study-1', name: 'Study Session 1', start: [7, 0], end: [10, 0], kind: 'study', icon: 'BookOpenText' },
-  { id: 'breakfast', name: 'Breakfast', start: [10, 0], end: [10, 30], kind: 'break', icon: 'Coffee' },
-  { id: 'break-am', name: 'Break', start: [10, 30], end: [11, 0], kind: 'break', icon: 'Coffee' },
-  { id: 'study-2', name: 'Study Session 2', start: [11, 0], end: [14, 0], kind: 'study', icon: 'BookOpenText' },
-  { id: 'lunch', name: 'Lunch', start: [14, 0], end: [15, 0], kind: 'break', icon: 'Coffee' },
-  { id: 'study-3', name: 'Study Session 3', start: [15, 0], end: [18, 0], kind: 'study', icon: 'BookOpenText' },
-  { id: 'break-pm', name: 'Break', start: [18, 0], end: [19, 0], kind: 'break', icon: 'Coffee' },
-  { id: 'study-4', name: 'Study Session 4', start: [19, 0], end: [20, 30], kind: 'study', icon: 'BookOpenText' },
-  { id: 'break-evening', name: 'Break', start: [20, 30], end: [21, 0], kind: 'break', icon: 'Coffee' },
-  { id: 'study-5', name: 'Study Session 5', start: [21, 0], end: [23, 0], kind: 'study', icon: 'BookOpenText' },
-  { id: 'sleep', name: 'Sleep', start: [23, 0], end: [6, 30], kind: 'sleep', icon: 'Moon' },
+  { id: 'wake', name: 'Wake Up & Freshen Up', start: [6, 30], end: [7, 0], kind: 'routine', icon: 'Sun', endTuneId: 'soft-chime' },
+  { id: 'study-1', name: 'Study Session 1', start: [7, 0], end: [10, 0], kind: 'study', icon: 'BookOpenText', endTuneId: 'soft-chime' },
+  { id: 'breakfast', name: 'Breakfast', start: [10, 0], end: [10, 30], kind: 'break', icon: 'Coffee', endTuneId: 'soft-chime' },
+  { id: 'break-am', name: 'Break', start: [10, 30], end: [11, 0], kind: 'break', icon: 'Coffee', endTuneId: 'soft-chime' },
+  { id: 'study-2', name: 'Study Session 2', start: [11, 0], end: [14, 0], kind: 'study', icon: 'BookOpenText', endTuneId: 'soft-chime' },
+  { id: 'lunch', name: 'Lunch', start: [14, 0], end: [15, 0], kind: 'break', icon: 'Coffee', endTuneId: 'soft-chime' },
+  { id: 'study-3', name: 'Study Session 3', start: [15, 0], end: [18, 0], kind: 'study', icon: 'BookOpenText', endTuneId: 'soft-chime' },
+  { id: 'break-pm', name: 'Break', start: [18, 0], end: [19, 0], kind: 'break', icon: 'Coffee', endTuneId: 'soft-chime' },
+  { id: 'study-4', name: 'Study Session 4', start: [19, 0], end: [20, 30], kind: 'study', icon: 'BookOpenText', endTuneId: 'soft-chime' },
+  { id: 'break-evening', name: 'Break', start: [20, 30], end: [21, 0], kind: 'break', icon: 'Coffee', endTuneId: 'soft-chime' },
+  { id: 'study-5', name: 'Study Session 5', start: [21, 0], end: [23, 0], kind: 'study', icon: 'BookOpenText', endTuneId: 'soft-chime' },
+  { id: 'sleep', name: 'Sleep', start: [23, 0], end: [6, 30], kind: 'sleep', icon: 'Moon', endTuneId: 'soft-chime' },
 ]
 
 export const ATELIER_ORIGINAL_PRESET: Readonly<Preset> = Object.freeze({

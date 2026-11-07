@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Activity,
@@ -20,6 +20,12 @@ import {
 import { ActivityIcon } from './ActivityIcon'
 import { ConfirmDialog } from './ConfirmDialog'
 import { EditorPage } from './EditorPage'
+import {
+  loadAudioSettings,
+  saveAudioSettings,
+  type StoredAudioSettingsV1,
+} from './audioStorage'
+import { useSessionEndSound } from './useSessionEndSound'
 import {
   formatClock,
   formatDuration,
@@ -735,6 +741,34 @@ export default function App() {
   const [themeMenuOpen, setThemeMenuOpen] = useState(false)
   const themeMenuRef = useRef<HTMLDivElement>(null)
 
+  // Audio settings persisted across browser sessions
+  const [audioSettings, setAudioSettings] = useState<StoredAudioSettingsV1>(() => loadAudioSettings())
+  const [sessionToast, setSessionToast] = useState<string | null>(null)
+
+  const handleUpdateAudioSettings = useCallback((updates: Partial<StoredAudioSettingsV1>) => {
+    setAudioSettings(prev => {
+      const next = { ...prev, ...updates }
+      saveAudioSettings(next)
+      return next
+    })
+  }, [])
+
+  const handleSessionComplete = useCallback((activity: ActivityDefinition) => {
+    const message = `SESSION COMPLETE — ${activity.name}`
+    setSessionToast(message)
+    setTimeout(() => {
+      setSessionToast(prev => (prev === message ? null : prev))
+    }, 4500)
+  }, [])
+
+  // Top-level session completion sound detector
+  useSessionEndSound({
+    schedule: planner.activeSchedule,
+    enabled: audioSettings.enabled,
+    volume: audioSettings.volume,
+    onSessionComplete: handleSessionComplete,
+  })
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem('atelier_focus_theme', theme)
@@ -1112,6 +1146,8 @@ export default function App() {
               <EditorPage
                 planner={planner}
                 theme={theme}
+                audioSettings={audioSettings}
+                onUpdateAudioSettings={handleUpdateAudioSettings}
                 onApplySuccess={() => setTab('overview')}
               />
             </motion.div>
@@ -1136,6 +1172,14 @@ export default function App() {
         }}
         onCancel={() => setPendingTab(null)}
       />
+
+      {/* Global Session Completion Notification */}
+      {sessionToast && (
+        <div className="session-complete-toast" role="status" aria-live="polite">
+          <Sparkles size={15} className="session-toast-icon" />
+          <span>{sessionToast}</span>
+        </div>
+      )}
     </div>
   )
 }
