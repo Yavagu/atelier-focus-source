@@ -1,4 +1,15 @@
-import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type RefObject,
+} from 'react'
+import { createPortal } from 'react-dom'
 import {
   Activity,
   AlarmClock,
@@ -351,5 +362,222 @@ export function IconPicker({ value, onChange, onClose, categoryKind }: IconPicke
         )}
       </div>
     </div>
+  )
+}
+
+export interface PopoverCoords {
+  top: number
+  left: number
+  placement: 'right' | 'left' | 'bottom' | 'top'
+}
+
+export function calculatePopoverCoords(
+  trigger: HTMLElement,
+  popover: HTMLElement | null
+): PopoverCoords {
+  const rect = trigger.getBoundingClientRect()
+  const gap = 10
+  const margin = 12
+  const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1024
+  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 768
+
+  const popupWidth = popover ? popover.offsetWidth : Math.min(320, viewportWidth - margin * 2)
+  const popupHeight = popover ? popover.offsetHeight : 340
+
+  const isNarrow = viewportWidth < 640
+  const roomOnRight = rect.right + gap + popupWidth <= viewportWidth - margin
+  const roomOnLeft = rect.left - gap - popupWidth >= margin
+
+  // 1. Immediately to the right of the clicked icon button, vertically aligned with the button
+  if (!isNarrow && roomOnRight) {
+    let top = rect.top
+    if (top + popupHeight > viewportHeight - margin) {
+      top = Math.max(margin, viewportHeight - popupHeight - margin)
+    }
+    if (top < margin) {
+      top = margin
+    }
+    return {
+      top: Math.round(top),
+      left: Math.round(rect.right + gap),
+      placement: 'right',
+    }
+  }
+
+  // 2. Fallback on desktop to the left if right doesn't fit
+  if (!isNarrow && roomOnLeft) {
+    let top = rect.top
+    if (top + popupHeight > viewportHeight - margin) {
+      top = Math.max(margin, viewportHeight - popupHeight - margin)
+    }
+    if (top < margin) {
+      top = margin
+    }
+    return {
+      top: Math.round(top),
+      left: Math.round(rect.left - gap - popupWidth),
+      placement: 'left',
+    }
+  }
+
+  // 3. Narrow screen (< 640px) or neither side fits: appear below the button
+  const roomBelow = rect.bottom + gap + popupHeight <= viewportHeight - margin
+  let top: number
+  let placement: 'bottom' | 'top' = 'bottom'
+
+  if (roomBelow || rect.top < popupHeight + gap + margin) {
+    top = rect.bottom + gap
+    placement = 'bottom'
+  } else {
+    top = Math.max(margin, rect.top - gap - popupHeight)
+    placement = 'top'
+  }
+
+  if (top + popupHeight > viewportHeight - margin) {
+    top = Math.max(margin, viewportHeight - popupHeight - margin)
+  }
+
+  let left = rect.left
+  if (left + popupWidth > viewportWidth - margin) {
+    left = viewportWidth - popupWidth - margin
+  }
+  if (left < margin) {
+    left = margin
+  }
+
+  return {
+    top: Math.round(top),
+    left: Math.round(left),
+    placement,
+  }
+}
+
+export interface IconPickerPopoverProps extends IconPickerProps {
+  isOpen: boolean
+  triggerRef: RefObject<HTMLElement | null>
+}
+
+export function IconPickerPopover({
+  isOpen,
+  triggerRef,
+  value,
+  onChange,
+  onClose,
+  categoryKind,
+}: IconPickerPopoverProps) {
+  const popoverRef = useRef<HTMLDivElement>(null)
+  const [coords, setCoords] = useState<PopoverCoords>({
+    top: 0,
+    left: 0,
+    placement: 'right',
+  })
+
+  const updatePosition = useCallback(() => {
+    const trigger = triggerRef.current
+    if (!trigger) return
+    const next = calculatePopoverCoords(trigger, popoverRef.current)
+    setCoords(next)
+  }, [triggerRef])
+
+  useLayoutEffect(() => {
+    if (isOpen) {
+      updatePosition()
+    }
+  }, [isOpen, updatePosition])
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    updatePosition()
+
+    const handleScrollOrResize = () => {
+      updatePosition()
+    }
+
+    window.addEventListener('resize', handleScrollOrResize, { passive: true })
+    window.addEventListener('scroll', handleScrollOrResize, { passive: true, capture: true })
+
+    return () => {
+      window.removeEventListener('resize', handleScrollOrResize)
+      window.removeEventListener('scroll', handleScrollOrResize, true)
+    }
+  }, [isOpen, updatePosition])
+
+  const handleClose = useCallback(() => {
+    onClose?.()
+    requestAnimationFrame(() => {
+      triggerRef.current?.focus()
+    })
+  }, [onClose, triggerRef])
+
+  const handleChange = useCallback(
+    (key: IconKey) => {
+      onChange(key)
+      handleClose()
+    },
+    [onChange, handleClose]
+  )
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        e.stopPropagation()
+        handleClose()
+      }
+    }
+
+    const handlePointerDown = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as Node
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(target) &&
+        !triggerRef.current?.contains(target)
+      ) {
+        handleClose()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown, true)
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('touchstart', handlePointerDown)
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, true)
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('touchstart', handlePointerDown)
+    }
+  }, [isOpen, handleClose, triggerRef])
+
+  if (!isOpen || typeof document === 'undefined') return null
+
+  return createPortal(
+    <>
+      <div
+        className="icon-picker-backdrop"
+        onClick={handleClose}
+        aria-hidden="true"
+      />
+      <div
+        ref={popoverRef}
+        className="icon-picker-popover-anchor"
+        style={{
+          position: 'fixed',
+          top: `${coords.top}px`,
+          left: `${coords.left}px`,
+        }}
+        data-placement={coords.placement}
+      >
+        <IconPicker
+          value={value}
+          categoryKind={categoryKind}
+          onChange={handleChange}
+          onClose={handleClose}
+        />
+      </div>
+    </>,
+    document.body
   )
 }

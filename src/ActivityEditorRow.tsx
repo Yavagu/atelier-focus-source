@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { AlertCircle, ChevronDown, Trash2 } from 'lucide-react'
-import { ActivityIcon, IconPicker, type IconKey } from './ActivityIcon'
+import { ActivityIcon, IconPickerPopover, type IconKey } from './ActivityIcon'
 import {
   getActivityDurationMinutes,
   getKindColors,
@@ -50,7 +50,6 @@ export function ActivityEditorRow({
   onDelete,
 }: ActivityEditorRowProps) {
   const [showIconPicker, setShowIconPicker] = useState(false)
-  const [iconPickerPos, setIconPickerPos] = useState({ top: 0, left: 0 })
   const iconBtnRef = useRef<HTMLButtonElement>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
   const colors = getKindColors(theme)
@@ -60,17 +59,6 @@ export function ActivityEditorRow({
       nameInputRef.current.focus()
     }
   }, [autoFocus])
-
-  const openIconPicker = () => {
-    if (iconBtnRef.current) {
-      const rect = iconBtnRef.current.getBoundingClientRect()
-      setIconPickerPos({
-        top: rect.bottom + window.scrollY + 6,
-        left: Math.max(16, Math.min(rect.left + window.scrollX, window.innerWidth - 340)),
-      })
-    }
-    setShowIconPicker(true)
-  }
 
   const durationMinutes = getActivityDurationMinutes(block)
   const overnight = isOvernight(block.start, block.end)
@@ -105,7 +93,7 @@ export function ActivityEditorRow({
             type="button"
             className="activity-icon-btn"
             style={{ color: categoryColor, borderColor: `${categoryColor}40` }}
-            onClick={openIconPicker}
+            onClick={() => setShowIconPicker(true)}
             aria-label={`Change icon for ${block.name || 'activity'}, current icon: ${block.icon}`}
             title="Click to change icon"
           >
@@ -226,28 +214,16 @@ export function ActivityEditorRow({
       )}
 
       {/* Icon Picker Popover */}
-      {showIconPicker && (
-        <>
-          <div
-            className="icon-picker-backdrop"
-            onClick={() => setShowIconPicker(false)}
-          />
-          <div
-            className="icon-picker-popover-anchor"
-            style={{ top: `${iconPickerPos.top}px`, left: `${iconPickerPos.left}px` }}
-          >
-            <IconPicker
-              value={block.icon}
-              categoryKind={block.kind}
-              onChange={(newIcon: IconKey) => {
-                onUpdate({ icon: newIcon })
-                setShowIconPicker(false)
-              }}
-              onClose={() => setShowIconPicker(false)}
-            />
-          </div>
-        </>
-      )}
+      <IconPickerPopover
+        isOpen={showIconPicker}
+        triggerRef={iconBtnRef}
+        value={block.icon}
+        categoryKind={block.kind}
+        onChange={(newIcon: IconKey) => {
+          onUpdate({ icon: newIcon })
+        }}
+        onClose={() => setShowIconPicker(false)}
+      />
     </div>
   )
 }

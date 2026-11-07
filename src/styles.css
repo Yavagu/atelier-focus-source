@@ -1472,22 +1472,38 @@ button:focus-visible, a:focus-visible, canvas:focus-visible, [role='slider']:foc
 .icon-picker-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 120;
+  z-index: 9998;
+  background: transparent;
+  cursor: default;
 }
 
 .icon-picker-popover-anchor {
-  position: absolute;
-  z-index: 130;
+  position: fixed;
+  z-index: 9999;
+  max-width: calc(100vw - 24px);
+  pointer-events: auto;
 }
 
 .icon-picker-panel {
   width: 320px;
+  max-width: 100%;
   background: var(--bg-card);
   border: 1px solid var(--border-card-hover);
   border-radius: 10px;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.7), 0 0 1px 1px rgba(255, 255, 255, 0.05);
   overflow: hidden;
-  animation: fadeIn 0.16s ease-out;
+  animation: popoverFadeIn 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes popoverFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .icon-picker-header {
